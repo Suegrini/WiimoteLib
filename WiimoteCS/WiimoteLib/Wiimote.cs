@@ -194,8 +194,10 @@ namespace WiimoteLib
 							Debug.WriteLine("Found one!");
 							found = true;
 
-							// fire the callback function...if the callee doesn't care about more Wiimotes, break out
-							if(!wiimoteFound(diDetail.DevicePath))
+                            HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+
+                            // fire the callback function...if the callee doesn't care about more Wiimotes, break out
+                            if (!wiimoteFound(diDetail.DevicePath))
 								break;
 						}
 					}

@@ -161,5 +161,8 @@ namespace WiimoteLib
 			[DllImport("kernel32.dll", SetLastError=true)]
 			[return: MarshalAs(UnmanagedType.Bool)]
 			public static extern bool CloseHandle(IntPtr hObject);
-	}
+
+        [DllImport("hid.dll")]
+        public static extern bool HidD_SetNumInputBuffers(IntPtr hidDeviceObject, int numberBuffers);
+    }
 }
