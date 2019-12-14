@@ -176,7 +176,9 @@ namespace WiimoteLib
 					Debug.WriteLine(string.Format("{0}: {1} - {2}", index, diDetail.DevicePath, Marshal.GetLastWin32Error()));
 
 					// open a read/write handle to our device using the DevicePath returned
-					mHandle = HIDImports.CreateFile(diDetail.DevicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, HIDImports.EFileAttributes.Overlapped, IntPtr.Zero);
+					mHandle = HIDImports.CreateFile(diDetail.DevicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open,
+                        HIDImports.EFileAttributes.NoBuffering | HIDImports.EFileAttributes.Write_Through | HIDImports.EFileAttributes.Temporary | HIDImports.EFileAttributes.Overlapped,
+                        IntPtr.Zero);
 
 					// create an attributes struct and initialize the size
 					HIDImports.HIDD_ATTRIBUTES attrib = new HIDImports.HIDD_ATTRIBUTES();
