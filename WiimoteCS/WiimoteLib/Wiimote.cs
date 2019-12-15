@@ -234,7 +234,9 @@ namespace WiimoteLib
 		private void OpenWiimoteDeviceHandle(string devicePath)
 		{
 			// open a read/write handle to our device using the DevicePath returned
-			mHandle = HIDImports.CreateFile(devicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, HIDImports.EFileAttributes.Overlapped, IntPtr.Zero);
+			mHandle = HIDImports.CreateFile(devicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open,
+                HIDImports.EFileAttributes.NoBuffering | HIDImports.EFileAttributes.Write_Through | HIDImports.EFileAttributes.Temporary | HIDImports.EFileAttributes.Overlapped,
+                IntPtr.Zero);
 
 			// create an attributes struct and initialize the size
 			HIDImports.HIDD_ATTRIBUTES attrib = new HIDImports.HIDD_ATTRIBUTES();
@@ -249,8 +251,10 @@ namespace WiimoteLib
 					// create a nice .NET FileStream wrapping the handle above
 					mStream = new FileStream(mHandle, FileAccess.ReadWrite, REPORT_LENGTH, true);
 
-					// start an async read operation on it
-					BeginAsyncRead();
+                    HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+
+                    // start an async read operation on it
+                    BeginAsyncRead();
 
 					// read the calibration info from the controller
 					try
