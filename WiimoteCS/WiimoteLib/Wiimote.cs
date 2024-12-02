@@ -34,8 +34,8 @@ namespace WiimoteLib
 		/// </summary>
 		public event EventHandler<WiimoteExtensionChangedEventArgs> WiimoteExtensionChanged;
 
-		// VID = Nintendo, PID = Wiimote
-		private const int VID = 0x057e;
+        // VID = Nintendo, PID = Wiimote
+        private const int VID = 0x057e;
 		private const int PID = 0x0306;
         private const int PID_TR = 0x0330;
 
@@ -67,6 +67,8 @@ namespace WiimoteLib
 		private const int REGISTER_EXTENSION_INIT_2			= 0x04a400fb;
 		private const int REGISTER_EXTENSION_TYPE			= 0x04a400fa;
 		private const int REGISTER_EXTENSION_CALIBRATION	= 0x04a40020;
+
+        private const int REGISTER_GUNCHUK_OUTPUT = 0x04a400E0;
 
         private const int REGISTER_SPEAKER1 = 0x04a20009;
         private const int REGISTER_SPEAKER2 = 0x04a20001;
@@ -427,8 +429,8 @@ namespace WiimoteLib
 					bool extension = (buff[3] & 0x02) != 0;
 					Debug.WriteLine("Extension: " + extension);
 
-					if(mWiimoteState.Extension != extension)
-					{
+                    if (mWiimoteState.Extension != extension || (mWiimoteState.Extension && mWiimoteState.ExtensionType == ExtensionType.Gunchuk))
+                    {
 						mWiimoteState.Extension = extension;
 
 						if(extension)
@@ -495,7 +497,8 @@ namespace WiimoteLib
 				case ExtensionType.Guitar:
 				case ExtensionType.BalanceBoard:
 				case ExtensionType.Drums:
-					mWiimoteState.ExtensionType = (ExtensionType)type;
+                case ExtensionType.Gunchuk:
+                    mWiimoteState.ExtensionType = (ExtensionType)type;
 					this.SetReportType(InputReport.ButtonsExtension, true);
 					break;
 				default:
@@ -569,7 +572,24 @@ namespace WiimoteLib
 					mWiimoteState.BalanceBoardState.CalibrationInfo.Kg34.TopLeft =		(short)((short)buff[24] << 8 | buff[25]);
 					mWiimoteState.BalanceBoardState.CalibrationInfo.Kg34.BottomLeft =	(short)((short)buff[26] << 8 | buff[27]);
 					break;
-			}
+                case ExtensionType.Gunchuk:
+                    buff = ReadData(REGISTER_EXTENSION_CALIBRATION, 16);
+
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0 = buff[0];
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Y0 = buff[1];
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Z0 = buff[2];
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.XG = buff[4];
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.YG = buff[5];
+                    mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.ZG = buff[6];
+
+                    mWiimoteState.GunchukState.CalibrationInfo.MaxX = buff[8];
+                    mWiimoteState.GunchukState.CalibrationInfo.MinX = buff[9];
+                    mWiimoteState.GunchukState.CalibrationInfo.MidX = buff[10];
+                    mWiimoteState.GunchukState.CalibrationInfo.MaxY = buff[11];
+                    mWiimoteState.GunchukState.CalibrationInfo.MinY = buff[12];
+                    mWiimoteState.GunchukState.CalibrationInfo.MidY = buff[13];
+                    break;
+            }
 		}
 
 		/// <summary>
@@ -929,7 +949,75 @@ namespace WiimoteLib
 					mWiimoteState.BalanceBoardState.CenterOfGravity.X = ((float)(Kx - 1) / (float)(Kx + 1)) * (float)(-BSL / 2);
 					mWiimoteState.BalanceBoardState.CenterOfGravity.Y = ((float)(Ky - 1) / (float)(Ky + 1)) * (float)(-BSW / 2);
 					break;
-			}
+
+                case ExtensionType.Gunchuk:
+                    // Get gunchuk button states
+                    mWiimoteState.GunchukState.ButtonState.Plus = (buff[offset + 4] & 0x04) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Home = (buff[offset + 4] & 0x08) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Minus = (buff[offset + 4] & 0x10) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Down = (buff[offset + 4] & 0x40) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Right = (buff[offset + 4] & 0x80) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Up = (buff[offset + 5] & 0x01) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Left = (buff[offset + 5] & 0x02) == 0;
+                    mWiimoteState.GunchukState.ButtonState.X = (buff[offset + 5] & 0x08) == 0;
+                    mWiimoteState.GunchukState.ButtonState.A = (buff[offset + 5] & 0x10) == 0;
+                    mWiimoteState.GunchukState.ButtonState.Y = (buff[offset + 5] & 0x20) == 0;
+                    mWiimoteState.GunchukState.ButtonState.B = (buff[offset + 5] & 0x40) == 0;
+                    bool newNunchukState = (buff[offset + 4] & 0x20) == 0;
+
+                    // If the nunchuk state changed, set new nunchuk state and trigger event
+                    if (mWiimoteState.GunchukState.NunchukState != newNunchukState)
+                    {
+                        mWiimoteState.GunchukState.NunchukState = newNunchukState;
+                        GetStatus();
+                    }
+
+                    // If nunchuk is disconnected we'll parse the gunchuk joystick data, otherwise we'll parse nunchuk joystick + accelerometer data
+                    if (!mWiimoteState.GunchukState.NunchukState)
+                    {
+                        mWiimoteState.GunchukState.RawJoystick.X = (byte)(buff[offset] << 2);
+                        mWiimoteState.GunchukState.RawJoystick.Y = (byte)(buff[offset + 1] << 2);
+
+                        if (mWiimoteState.GunchukState.CalibrationInfo.MaxX != 0x00)
+                            mWiimoteState.GunchukState.Joystick.X = (float)((float)mWiimoteState.GunchukState.RawJoystick.X - mWiimoteState.GunchukState.CalibrationInfo.MidX) /
+                                                    ((float)mWiimoteState.GunchukState.CalibrationInfo.MaxX - mWiimoteState.GunchukState.CalibrationInfo.MinX);
+
+                        if (mWiimoteState.GunchukState.CalibrationInfo.MaxY != 0x00)
+                            mWiimoteState.GunchukState.Joystick.Y = (float)((float)mWiimoteState.GunchukState.RawJoystick.Y - mWiimoteState.GunchukState.CalibrationInfo.MidY) /
+                                                    ((float)mWiimoteState.GunchukState.CalibrationInfo.MaxY - mWiimoteState.GunchukState.CalibrationInfo.MinY);
+                    }
+                    else
+                    {
+                        mWiimoteState.NunchukState.C = (buff[offset + 5] & 0x04) == 0;
+                        mWiimoteState.NunchukState.Z = (buff[offset + 5] & 0x80) == 0;
+
+                        mWiimoteState.NunchukState.RawJoystick.X = (byte)(buff[offset] << 2);
+                        mWiimoteState.NunchukState.RawJoystick.Y = (byte)(buff[offset + 1] << 2);
+
+                        mWiimoteState.NunchukState.AccelState.RawValues.X = (byte)(buff[offset + 2] << 1);
+                        mWiimoteState.NunchukState.AccelState.RawValues.Y = (byte)(buff[offset + 3] << 1);
+                        mWiimoteState.NunchukState.AccelState.RawValues.Z = (buff[offset] & 0xC0) | ((buff[offset + 1] & 0xC0) >> 2) |
+                            ((buff[offset + 2] & 0x80) >> 4) | ((buff[offset + 3] & 0x80) >> 5) | (buff[offset + 4] & 0x02);
+
+                        mWiimoteState.NunchukState.AccelState.Values.X = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.X - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0) /
+                                                        ((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.XG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0);
+
+                        mWiimoteState.NunchukState.AccelState.Values.Y = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.Y - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Y0) /
+                                                        ((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.YG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Y0);
+
+                        mWiimoteState.NunchukState.AccelState.Values.Z = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.Z - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Z0) /
+                                                        ((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.ZG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Z0);
+
+                        if (mWiimoteState.GunchukState.CalibrationInfo.MaxX != 0x00)
+                            mWiimoteState.NunchukState.Joystick.X = (float)((float)mWiimoteState.NunchukState.RawJoystick.X - mWiimoteState.GunchukState.CalibrationInfo.MidX) /
+                                                    ((float)mWiimoteState.GunchukState.CalibrationInfo.MaxX - mWiimoteState.GunchukState.CalibrationInfo.MinX);
+
+                        if (mWiimoteState.GunchukState.CalibrationInfo.MaxY != 0x00)
+                            mWiimoteState.NunchukState.Joystick.Y = (float)((float)mWiimoteState.NunchukState.RawJoystick.Y - mWiimoteState.GunchukState.CalibrationInfo.MidY) /
+                                                    ((float)mWiimoteState.GunchukState.CalibrationInfo.MaxY - mWiimoteState.GunchukState.CalibrationInfo.MinY);
+                    }
+                    break;
+            }
 		}
 
 		private float GetBalanceBoardSensorValue(short sensor, short min, short mid, short max)
@@ -1334,6 +1422,33 @@ namespace WiimoteLib
             mBuff[1] = (byte)((length << 3) | GetRumbleBit());
             Array.Copy(data, 0, mBuff, 2, data.Length);
             WriteReport();
+        }
+
+        /// <summary>
+        /// Send data to extension
+        /// </summary>
+        public void SendExtensionData()
+        {
+            if (mWiimoteState.ExtensionType == ExtensionType.Gunchuk) // Confirm that gunchuk is connected before trying to send data
+            {
+                byte[] outPacket = new byte[6];
+
+                outPacket[0] = (byte)(((byte)mWiimoteState.Battery & 0xfc) | (mWiimoteState.GunchukData.Player & 0x03));
+                outPacket[1] = (byte)((mWiimoteState.GunchukData.Recoil ? 1 : 0) |
+                                ((mWiimoteState.GunchukData.Rumble ? 1 : 0) << 1) |
+                                ((mWiimoteState.GunchukData.Ext1 ? 1 : 0) << 2) |
+                                ((mWiimoteState.GunchukData.Ext2 ? 1 : 0) << 3) |
+                                ((mWiimoteState.GunchukData.Virtual1 ? 1 : 0) << 4) |
+                                ((mWiimoteState.GunchukData.Virtual2 ? 1 : 0) << 5) |
+                                ((mWiimoteState.GunchukData.Virtual3 ? 1 : 0) << 6) |
+                                ((mWiimoteState.GunchukData.Virtual4 ? 1 : 0) << 7));
+                outPacket[2] = (byte)((mWiimoteState.GunchukData.LedColor.G & 0xf0) | (mWiimoteState.GunchukData.LedColor.R >> 4)); //RGB values are truncated to 4 bits each
+                outPacket[3] = (byte)((mWiimoteState.GunchukData.Lives << 4) | (mWiimoteState.GunchukData.LedColor.B >> 4));
+                outPacket[4] = (byte)mWiimoteState.GunchukData.Ammo;
+                outPacket[5] = (byte)mWiimoteState.GunchukData.Profile;
+
+                WriteData(REGISTER_GUNCHUK_OUTPUT, 6, outPacket);
+            }
         }
 
         /// <summary>

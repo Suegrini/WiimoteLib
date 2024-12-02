@@ -210,10 +210,20 @@ namespace WiimoteLib
 		/// Current state of the Wii Fit Balance Board
 		/// </summary>
 		public BalanceBoardState BalanceBoardState;
-		/// <summary>
-		/// Current state of LEDs
-		/// </summary>
-		[DataMember]
+        /// <summary>
+        /// Current state of Gunchuk extension
+        /// </summary>
+        [DataMember]
+        public GunchukState GunchukState;
+        /// <summary>
+        /// Data to be sent to the Gunchuk extension
+        /// </summary>
+        [DataMember]
+        public GunchukData GunchukData;
+        /// <summary>
+        /// Current state of LEDs
+        /// </summary>
+        [DataMember]
 		public LEDState LEDState;
 
 		/// <summary>
@@ -641,10 +651,138 @@ namespace WiimoteLib
 		public float BottomLeft;
 	}
 
-	/// <summary>
-	/// Current state of a single IR sensor
-	/// </summary>
-	[Serializable]
+    /// <summary>
+    /// Calibration information stored on the Gunchuk extension
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public struct GunchukCalibrationInfo
+    {
+        /// <summary>
+        /// Joystick X-axis calibration
+        /// </summary>
+        [DataMember]
+        public byte MinX, MidX, MaxX;
+        /// <summary>
+        /// Joystick Y-axis calibration
+        /// </summary>
+        [DataMember]
+        public byte MinY, MidY, MaxY;
+    }
+    /// <summary>
+    /// Curernt button state of the Gunchuk extension
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public struct GunchukButtonState
+    {
+        /// <summary>
+        /// Digital button on the Gunchuk extension
+        /// </summary>
+        [DataMember]
+        public bool A, B, Up, Down, Left, Right, X, Y, Plus, Home, Minus;
+    }
+    /// <summary>
+    /// Current state of the Gunchuk extension
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public struct GunchukState
+    {
+        /// <summary>
+        /// Calibration data for the Gunchuk extension
+        /// </summary>
+        [DataMember]
+        public GunchukCalibrationInfo CalibrationInfo;
+        /// <summary>
+        /// Current button state of the Gunchuk extension
+        /// </summary>
+        [DataMember]
+        public GunchukButtonState ButtonState;
+        /// <summary>
+        /// Raw joystick position before normalization.  Values range between 0 and 255.
+        /// </summary>
+        [DataMember]
+        public Point RawJoystick;
+        /// <summary>
+        /// Normalized joystick position.  Values range between -0.5 and 0.5
+        /// </summary>
+        [DataMember]
+        public PointF Joystick;
+        /// <summary>
+        /// Nunchuk connection state
+        /// </summary>
+        [DataMember]
+        public bool NunchukState;
+    }
+    /// <summary>
+    /// Data that will be sent to the Gunchuk extension
+    /// </summary>
+    [Serializable]
+    public struct GunchukData
+    {
+        /// <summary>
+        /// State of recoil.
+        /// </summary>
+        [DataMember]
+        public bool Recoil;
+        /// <summary>
+        /// State of rumble.
+        /// </summary>
+        [DataMember]
+        public bool Rumble;
+        /// <summary>
+        /// State of extra output 1.
+        /// </summary>
+        [DataMember]
+        public bool Ext1;
+        /// <summary>
+        /// State of extra output 2.
+        /// </summary>
+        [DataMember]
+        public bool Ext2;
+        /// <summary>
+        /// Player ID to be sent.
+        /// </summary>
+        [DataMember]
+        public byte Player;
+        /// <summary>
+        /// Game lives data to be sent.
+        /// </summary>
+        [DataMember]
+        public byte Lives;
+        /// <summary>
+        /// Game ammo data to be sent.
+        /// </summary>
+        [DataMember]
+        public byte Ammo;
+        /// <summary>
+        /// Profile value to be sent.
+        /// </summary>
+        [DataMember]
+        public byte Profile;
+        /// <summary>
+        /// State of virtual outputs.
+        /// </summary>
+        [DataMember]
+        public bool Virtual1, Virtual2, Virtual3, Virtual4;
+        /// <summary>
+        /// RGB color value to be sent.
+        /// </summary>
+		[DataMember]
+        public LEDColor LedColor;
+        public struct LEDColor
+        {
+            public byte R;
+            public byte G;
+            public byte B;
+        }
+    }
+
+    /// <summary>
+    /// Current state of a single IR sensor
+    /// </summary>
+    [Serializable]
 	[DataContract]
 	public struct IRSensor
 	{
@@ -813,6 +951,9 @@ namespace WiimoteLib
 		/// Classic Controller extension
         /// </summary>
         ClassicController   = 0x0000a4200101,
+		/// <summary>
+		/// Classic Controller Pro
+		/// </summary>
         ClassicControllerPro = 0x0100a4200101,
 		/// <summary>
 		/// Guitar controller from Guitar Hero 3/WorldTour
@@ -826,10 +967,14 @@ namespace WiimoteLib
 		/// Wii Fit Balance Board controller
 		/// </summary>
 		BalanceBoard		= 0x0000a4200402,
-		/// <summary>
-		/// Partially inserted extension.  This is an error condition.
-		/// </summary>
-		ParitallyInserted	= 0xffffffffffff
+        /// <summary>
+        /// Gunchuk
+        /// </summary>
+        Gunchuk				= 0x0000a4206767,
+        /// <summary>
+        /// Partially inserted extension.  This is an error condition.
+        /// </summary>
+        ParitallyInserted	= 0xffffffffffff
 	};
 
 	/// <summary>
