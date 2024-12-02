@@ -156,10 +156,15 @@ namespace WiimoteLib
 		/// </summary>
 		[DataMember]
 		public IRState IRState;
-		/// <summary>
-		/// Raw byte value of current battery level
-		/// </summary>
-		[DataMember]
+        /// <summary>
+        /// Current state of Speaker
+        /// </summary>
+        [DataMember]
+        public SpeakerState SpeakerState;
+        /// <summary>
+        /// Raw byte value of current battery level
+        /// </summary>
+        [DataMember]
 		public byte BatteryRaw;
 		/// <summary>
 		/// Calculated current battery level
@@ -171,10 +176,10 @@ namespace WiimoteLib
 		/// </summary>
 		[DataMember]
 		public bool Rumble;
-		/// <summary>
-		/// Is an extension controller inserted?
-		/// </summary>
-		[DataMember]
+        /// <summary>
+        /// Is an extension controller inserted?
+        /// </summary>
+        [DataMember]
 		public bool Extension;
 		/// <summary>
 		/// Extension controller currently inserted, if any
@@ -755,10 +760,44 @@ namespace WiimoteLib
 		public bool A, B, Plus, Home, Minus, One, Two, Up, Down, Left, Right;
 	}
 
-	/// <summary>
-	/// The extension plugged into the Wiimote
-	/// </summary>
-	[DataContract]
+    /// <summary>
+    /// Current state of the speaker
+    /// </summary>
+    [Serializable]
+    [DataContract]
+    public struct SpeakerState
+    {
+        /// <summary>
+        /// Current speaker data format. PCM or ADPCM
+        /// </summary>
+        [DataMember]
+        public SpeakerDataFormat DataFormat;
+        /// <summary>
+        /// Current speaker sample rate
+        /// </summary>
+        [DataMember]
+        public int SampleRate;
+        /// <summary>
+        /// Current speaker volume
+        /// </summary>
+        [DataMember]
+        public byte Volume;
+        /// <summary>
+        /// Current speaker muted state
+        /// </summary>
+        [DataMember]
+        public bool Muted;
+        /// <summary>
+        /// Current speaker enabled state
+        /// </summary>
+        [DataMember]
+        public bool Enabled;
+    }
+
+    /// <summary>
+    /// The extension plugged into the Wiimote
+    /// </summary>
+    [DataContract]
 	public enum ExtensionType : long
 	{
 		/// <summary>
@@ -906,4 +945,19 @@ namespace WiimoteLib
 		/// </summary>
 		GuitarHeroWorldTour
 	}
+
+	/// <summary>
+	/// Format of audio data to be played: PCM or Yamaha ADPCM
+	/// </summary>
+    public enum SpeakerDataFormat
+    {
+        /// <summary>
+        /// 8-bit raw signed PCM
+        /// </summary>
+        PCM,
+        /// <summary>
+        /// 4-bit compressed Yamaha ADPCM
+        /// </summary>
+        ADPCM
+    }
 }

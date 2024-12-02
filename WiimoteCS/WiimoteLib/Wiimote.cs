@@ -15,6 +15,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using Microsoft.Win32.SafeHandles;
 using System.Threading;
+using System.Timers;
 
 namespace WiimoteLib
 {
@@ -51,7 +52,10 @@ namespace WiimoteLib
 			WriteMemory		= 0x16,
 			ReadMemory		= 0x17,
 			IR2				= 0x1a,
-		};
+			SpeakerEnable	= 0x14,
+            SpeakerMute		= 0x19,
+            SpeakerData		= 0x18
+    };
 
 		// Wiimote registers
 		private const int REGISTER_IR				= 0x04b00030;
@@ -64,8 +68,12 @@ namespace WiimoteLib
 		private const int REGISTER_EXTENSION_TYPE			= 0x04a400fa;
 		private const int REGISTER_EXTENSION_CALIBRATION	= 0x04a40020;
 
-		// length between board sensors
-		private const int BSL = 43;
+        private const int REGISTER_SPEAKER1 = 0x04a20009;
+        private const int REGISTER_SPEAKER2 = 0x04a20001;
+        private const int REGISTER_SPEAKER3 = 0x04a20008;
+
+        // length between board sensors
+        private const int BSL = 43;
 
 		// width between board sensors
 		private const int BSW = 24;
@@ -113,10 +121,25 @@ namespace WiimoteLib
 		// kilograms to pounds
 		private const float KG2LB = 2.20462262f;
 
-		/// <summary>
-		/// Default constructor
-		/// </summary>
-		public Wiimote()
+        // Number of audio samples per report
+        private int samplesPerReport;
+
+        // Time to wait between speaker reports in milliseconds
+        private double sampleInterval;
+
+        // Audio playback index
+        private int playbackIndex;
+
+        // Audio playback timer
+        private System.Timers.Timer playbackTimer;
+
+        // Audio data buffer
+        private byte[] soundData;
+
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public Wiimote()
 		{
 		}
 
@@ -1167,10 +1190,156 @@ namespace WiimoteLib
 			WriteReport();
 		}
 
-		/// <summary>
-		/// Initialize the report data buffer
-		/// </summary>
-		private void ClearReport()
+        /// <summary>
+        /// Enable the speaker
+        /// </summary>
+        public void EnableSpeaker()
+        {
+            byte[] speakerConfig = GetSpeakerConfig();
+
+            samplesPerReport = mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM ? 20 : 40;
+            sampleInterval = (double)samplesPerReport / mWiimoteState.SpeakerState.SampleRate * 1000;
+
+            mBuff[0] = (byte)OutputReport.SpeakerEnable;
+            mBuff[1] = (byte)(0x04 | GetRumbleBit());
+            WriteReport();
+
+            SetSpeakerMuteState(true);
+            WriteData(REGISTER_SPEAKER1, 0X01);
+            WriteData(REGISTER_SPEAKER2, 0X08);
+            WriteData(REGISTER_SPEAKER2, 7, speakerConfig);
+            WriteData(REGISTER_SPEAKER3, 0X01);
+            SetSpeakerMuteState(false);
+
+            mWiimoteState.SpeakerState.Enabled = true;
+        }
+
+        /// <summary>
+        /// Disable the speaker
+        /// </summary>
+        public void DisableSpeaker()
+        {
+            StopPlayback();
+
+            mBuff[0] = (byte)OutputReport.SpeakerEnable;
+            mBuff[1] = GetRumbleBit();
+            WriteReport();
+
+            mWiimoteState.SpeakerState.Enabled = false;
+        }
+
+        /// <summary>
+        /// Mute/unmute the speaker
+        /// </summary>
+        /// <param name="state"></param>
+        public void SetSpeakerMuteState(bool state)
+        {
+            mBuff[0] = (byte)OutputReport.SpeakerMute;
+            mBuff[1] = (byte)((state ? 0x04 : 0x00) | GetRumbleBit());
+            WriteReport();
+
+            mWiimoteState.SpeakerState.Muted = state;
+        }
+
+        /// <summary>
+		/// Start speaker playback.Data is a raw byte array of PCM or ADPCM data
+        /// </summary>
+        /// <param name="data"></param>
+        public void StartPlayback(byte[] data)
+        {
+            soundData = data;
+            playbackIndex = 0;
+
+            StopPlayback();
+
+            playbackTimer = new System.Timers.Timer(sampleInterval);
+            playbackTimer.Elapsed += OnPlaybackTimerElapsed;
+            playbackTimer.Start();
+        }
+
+        /// <summary>
+        /// Stop speaker playback
+        /// </summary>
+        public void StopPlayback()
+        {
+            if (playbackTimer != null)
+            {
+                playbackTimer.Stop();
+                playbackTimer.Dispose();
+                playbackTimer = null;
+            }
+
+            playbackIndex = 0;
+            soundData = null;
+        }
+
+        private byte[] GetSpeakerConfig()
+        {
+            byte[] config = new byte[7];
+            ushort sampleRateValue = 0;
+            byte dataFormat = 0;
+            byte volume = 0;
+
+            if (mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM)
+            {
+                dataFormat = 0x40;
+                sampleRateValue = (ushort)(12000000 / mWiimoteState.SpeakerState.SampleRate);
+                volume = mWiimoteState.SpeakerState.Volume;
+            }
+            else if (mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.ADPCM)
+            {
+                dataFormat = 0x00;
+                sampleRateValue = (ushort)(6000000 / mWiimoteState.SpeakerState.SampleRate);
+                volume = (byte)(mWiimoteState.SpeakerState.Volume * 0x40 / 0xFF);
+            }
+
+            byte[] sampleRateBytes = BitConverter.GetBytes(sampleRateValue);
+            if (!BitConverter.IsLittleEndian) Array.Reverse(sampleRateBytes);
+
+            config[0] = 0x00;
+            config[1] = dataFormat;
+            config[2] = sampleRateBytes[0];
+            config[3] = sampleRateBytes[1];
+            config[4] = volume;
+            config[5] = 0x00;
+            config[6] = 0x00;
+
+            return config;
+        }
+
+        private void OnPlaybackTimerElapsed(object sender, ElapsedEventArgs e)
+        {
+            if (playbackIndex < soundData.Length)
+            {
+                int length = Math.Min(20, soundData.Length - playbackIndex);
+                byte[] chunk = new byte[20];
+                Array.Copy(soundData, playbackIndex, chunk, 0, length);
+
+                SendSpeakerData(chunk);
+                playbackIndex += length;
+            }
+            else
+            {
+                playbackTimer.Stop();
+                playbackTimer.Dispose();
+            }
+        }
+        private void SendSpeakerData(byte[] data)
+        {
+            int length = data.Length;
+            if (length < 20)
+                Array.Clear(data, length, 20 - length);
+
+            mBuff[0] = (byte)OutputReport.SpeakerData;
+            mBuff[1] = (byte)((length << 3) | GetRumbleBit());
+            Array.Copy(data, 0, mBuff, 2, data.Length);
+            WriteReport();
+        }
+
+        /// <summary>
+        /// Initialize the report data buffer
+        /// </summary>
+        private void ClearReport()
 		{
 			Array.Clear(mBuff, 0, REPORT_LENGTH);
 		}
