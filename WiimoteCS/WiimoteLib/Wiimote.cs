@@ -629,13 +629,13 @@ namespace WiimoteLib
 		/// </summary>
 		/// <param name="buff">Data buffer</param>
 		private void ParseAccel(byte[] buff)
-		{
-			mWiimoteState.AccelState.RawValues.X = buff[3];
-			mWiimoteState.AccelState.RawValues.Y = buff[4];
-			mWiimoteState.AccelState.RawValues.Z = buff[5];
+        {
+            mWiimoteState.AccelState.RawValues.X = (buff[3] << 2) | ((buff[1] >> 5) & 0x3);
+            mWiimoteState.AccelState.RawValues.Y = (buff[4] << 2) | ((buff[2] >> 4) & 0x2);
+            mWiimoteState.AccelState.RawValues.Z = (buff[5] << 2) | ((buff[2] >> 5) & 0x2);
 
-			mWiimoteState.AccelState.Values.X = (float)((float)mWiimoteState.AccelState.RawValues.X - ((int)mWiimoteState.AccelCalibrationInfo.X0)) / 
-											((float)mWiimoteState.AccelCalibrationInfo.XG - ((int)mWiimoteState.AccelCalibrationInfo.X0));
+            mWiimoteState.AccelState.Values.X = (float)((float)mWiimoteState.AccelState.RawValues.X - mWiimoteState.AccelCalibrationInfo.X0) / 
+											((float)mWiimoteState.AccelCalibrationInfo.XG - mWiimoteState.AccelCalibrationInfo.X0);
 			mWiimoteState.AccelState.Values.Y = (float)((float)mWiimoteState.AccelState.RawValues.Y - mWiimoteState.AccelCalibrationInfo.Y0) /
 											((float)mWiimoteState.AccelCalibrationInfo.YG - mWiimoteState.AccelCalibrationInfo.Y0);
 			mWiimoteState.AccelState.Values.Z = (float)((float)mWiimoteState.AccelState.RawValues.Z - mWiimoteState.AccelCalibrationInfo.Z0) /
@@ -727,11 +727,11 @@ namespace WiimoteLib
 				case ExtensionType.Nunchuk:
 					mWiimoteState.NunchukState.RawJoystick.X = buff[offset];
 					mWiimoteState.NunchukState.RawJoystick.Y = buff[offset + 1];
-					mWiimoteState.NunchukState.AccelState.RawValues.X = buff[offset + 2];
-					mWiimoteState.NunchukState.AccelState.RawValues.Y = buff[offset + 3];
-					mWiimoteState.NunchukState.AccelState.RawValues.Z = buff[offset + 4];
+                    mWiimoteState.NunchukState.AccelState.RawValues.X = (buff[offset + 2] << 2) | ((buff[offset + 5] & 0x0c) >> 2);
+                    mWiimoteState.NunchukState.AccelState.RawValues.Y = (buff[offset + 3] << 2) | ((buff[offset + 5] & 0x30) >> 4);
+                    mWiimoteState.NunchukState.AccelState.RawValues.Z = (buff[offset + 4] << 2) | ((buff[offset + 5] & 0xc0) >> 6);
 
-					mWiimoteState.NunchukState.C = (buff[offset + 5] & 0x02) == 0;
+                    mWiimoteState.NunchukState.C = (buff[offset + 5] & 0x02) == 0;
 					mWiimoteState.NunchukState.Z = (buff[offset + 5] & 0x01) == 0;
 
 					mWiimoteState.NunchukState.AccelState.Values.X = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.X - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0) / 
@@ -1069,17 +1069,17 @@ namespace WiimoteLib
 		/// Read calibration information stored on Wiimote
 		/// </summary>
 		private void ReadWiimoteCalibration()
-		{
-			// this appears to change the report type to 0x31
-			byte[] buff = ReadData(0x0016, 7);
+        {
+            // this appears to change the report type to 0x31
+            byte[] buff = ReadData(0x0016, 8);
 
-			mWiimoteState.AccelCalibrationInfo.X0 = buff[0];
-			mWiimoteState.AccelCalibrationInfo.Y0 = buff[1];
-			mWiimoteState.AccelCalibrationInfo.Z0 = buff[2];
-			mWiimoteState.AccelCalibrationInfo.XG = buff[4];
-			mWiimoteState.AccelCalibrationInfo.YG = buff[5];
-			mWiimoteState.AccelCalibrationInfo.ZG = buff[6];
-		}
+            mWiimoteState.AccelCalibrationInfo.X0 = (buff[0] << 2) | ((buff[3] & 0x30) >> 4);
+            mWiimoteState.AccelCalibrationInfo.Y0 = (buff[1] << 2) | ((buff[3] & 0x0c) >> 2);
+            mWiimoteState.AccelCalibrationInfo.Z0 = (buff[2] << 2) | (buff[3] & 0x03);
+            mWiimoteState.AccelCalibrationInfo.XG = (buff[4] << 2) | ((buff[7] & 0x30) >> 4);
+            mWiimoteState.AccelCalibrationInfo.YG = (buff[5] << 2) | ((buff[7] & 0x0c) >> 2);
+            mWiimoteState.AccelCalibrationInfo.ZG = (buff[6] << 2) | (buff[7] & 0x03);
+        }
 
 		/// <summary>
 		/// Set Wiimote reporting mode (if using an IR report type, IR sensitivity is set to WiiLevel3)

@@ -876,12 +876,12 @@ namespace WiimoteLib
 		/// Zero point of accelerometer
 		/// </summary>
 		[DataMember]
-		public byte X0, Y0, Z0;
+		public int X0, Y0, Z0;
 		/// <summary>
 		/// Gravity at rest of accelerometer
 		/// </summary>
 		[DataMember]
-		public byte XG, YG, ZG;
+		public int XG, YG, ZG;
 	}
 
 	/// <summary>
