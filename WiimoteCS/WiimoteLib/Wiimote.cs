@@ -15,7 +15,6 @@ using System.IO;
 using System.Runtime.Serialization;
 using Microsoft.Win32.SafeHandles;
 using System.Threading;
-using System.Timers;
 
 namespace WiimoteLib
 {
@@ -126,14 +125,14 @@ namespace WiimoteLib
         // Number of audio samples per report
         private int samplesPerReport;
 
-        // Time to wait between speaker reports in milliseconds
-        private double sampleInterval;
+        // Time to wait between speaker reports in microseconds
+        private int sampleInterval;
 
         // Audio playback index
         private int playbackIndex;
 
         // Audio playback timer
-        private System.Timers.Timer playbackTimer;
+        private MicroTimer playbackTimer;
 
         // Audio data buffer
         private byte[] soundData;
@@ -1286,7 +1285,7 @@ namespace WiimoteLib
             byte[] speakerConfig = GetSpeakerConfig();
 
             samplesPerReport = mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM ? 20 : 40;
-            sampleInterval = (double)samplesPerReport / mWiimoteState.SpeakerState.SampleRate * 1000;
+            sampleInterval = (samplesPerReport * 1000000) / mWiimoteState.SpeakerState.SampleRate;
 
             mBuff[0] = (byte)OutputReport.SpeakerEnable;
             mBuff[1] = (byte)(0x04 | GetRumbleBit());
@@ -1330,7 +1329,7 @@ namespace WiimoteLib
         }
 
         /// <summary>
-		/// Start speaker playback.Data is a raw byte array of PCM or ADPCM data
+		/// Start speaker playback. Data is a raw byte array of PCM or ADPCM data
         /// </summary>
         /// <param name="data"></param>
         public void StartPlayback(byte[] data)
@@ -1340,7 +1339,7 @@ namespace WiimoteLib
             playbackIndex = 0;
             soundData = data;
 
-            playbackTimer = new System.Timers.Timer(sampleInterval);
+            playbackTimer = new MicroTimer(sampleInterval);
             playbackTimer.Elapsed += OnPlaybackTimerElapsed;
             playbackTimer.Start();
         }
@@ -1353,7 +1352,6 @@ namespace WiimoteLib
             if (playbackTimer != null)
             {
                 playbackTimer.Stop();
-                playbackTimer.Dispose();
                 playbackTimer = null;
             }
 
@@ -1395,8 +1393,11 @@ namespace WiimoteLib
             return config;
         }
 
-        private void OnPlaybackTimerElapsed(object sender, ElapsedEventArgs e)
+        private void OnPlaybackTimerElapsed(object sender, EventArgs e)
         {
+			if (sender != playbackTimer)
+                return;
+
             if (playbackIndex < soundData.Length)
             {
                 int length = Math.Min(20, soundData.Length - playbackIndex);
@@ -1409,9 +1410,9 @@ namespace WiimoteLib
             else
             {
                 playbackTimer.Stop();
-                playbackTimer.Dispose();
             }
         }
+
         private void SendSpeakerData(byte[] data)
         {
             int length = data.Length;
@@ -1668,5 +1669,59 @@ namespace WiimoteLib
 		protected WiimoteException(SerializationInfo info, StreamingContext context) : base(info, context)
 		{
 		}
-	}
+    }
+
+	internal class MicroTimer
+    {
+        public event EventHandler Elapsed;
+
+        private Thread timerThread;
+        private long intervalMicroseconds;
+        private bool stopTimer;
+        private Stopwatch stopwatch;
+
+        public MicroTimer(long intervalMicroseconds)
+        {
+            this.intervalMicroseconds = intervalMicroseconds;
+            stopwatch = new Stopwatch();
+        }
+
+        public void Start()
+        {
+            stopTimer = false;
+            timerThread = new Thread(TimerLoop)
+            {
+                Priority = ThreadPriority.Highest
+            };
+            timerThread.Start();
+        }
+
+        public void Stop()
+        {
+            stopTimer = true;
+
+            if (Thread.CurrentThread != timerThread)
+            {
+                timerThread.Join();
+            }
+        }
+
+        private void TimerLoop()
+        {
+            stopwatch.Start();
+
+            long nextTrigger = stopwatch.ElapsedTicks + intervalMicroseconds * Stopwatch.Frequency / 1000000;
+
+            while (!stopTimer)
+            {
+                if (stopwatch.ElapsedTicks >= nextTrigger)
+                {
+                    Elapsed?.Invoke(this, EventArgs.Empty);
+                    nextTrigger += intervalMicroseconds * Stopwatch.Frequency / 1000000;
+                }
+            }
+
+            stopwatch.Stop();
+        }
+    }
 }
