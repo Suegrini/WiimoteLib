@@ -1335,10 +1335,10 @@ namespace WiimoteLib
         /// <param name="data"></param>
         public void StartPlayback(byte[] data)
         {
-            soundData = data;
-            playbackIndex = 0;
-
             StopPlayback();
+
+            playbackIndex = 0;
+            soundData = data;
 
             playbackTimer = new System.Timers.Timer(sampleInterval);
             playbackTimer.Elapsed += OnPlaybackTimerElapsed;
