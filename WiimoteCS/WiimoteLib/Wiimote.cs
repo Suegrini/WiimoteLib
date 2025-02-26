@@ -194,7 +194,7 @@ namespace WiimoteLib
 							Debug.WriteLine("Found one!");
 							found = true;
 
-                            HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+                            HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 3);
 
                             // fire the callback function...if the callee doesn't care about more Wiimotes, break out
                             if (!wiimoteFound(diDetail.DevicePath))
@@ -251,7 +251,7 @@ namespace WiimoteLib
 					// create a nice .NET FileStream wrapping the handle above
 					mStream = new FileStream(mHandle, FileAccess.ReadWrite, REPORT_LENGTH, true);
 
-                    HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+                    HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 3);
 
                     // start an async read operation on it
                     BeginAsyncRead();
