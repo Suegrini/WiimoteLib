@@ -166,6 +166,7 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>none</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'MSRS Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
