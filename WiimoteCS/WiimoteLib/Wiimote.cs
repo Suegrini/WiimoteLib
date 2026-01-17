@@ -126,7 +126,7 @@ namespace WiimoteLib
         private int samplesPerReport;
 
         // Time to wait between speaker reports in microseconds
-        private int sampleInterval;
+        private int reportInterval;
 
         // Audio playback index
         private int playbackIndex;
@@ -1284,8 +1284,10 @@ namespace WiimoteLib
         {
             byte[] speakerConfig = GetSpeakerConfig();
 
-            samplesPerReport = mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM ? 20 : 40;
-            sampleInterval = (samplesPerReport * 1000000) / mWiimoteState.SpeakerState.SampleRate;
+            // samplesPerReport = mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM ? 20 : 40;
+            // reportInterval = (samplesPerReport * 1000000) / mWiimoteState.SpeakerState.SampleRate; Will revisit later
+
+            reportInterval = (20 * 1000000) / mWiimoteState.SpeakerState.SampleRate;
 
             mBuff[0] = (byte)OutputReport.SpeakerEnable;
             mBuff[1] = (byte)(0x04 | GetRumbleBit());
@@ -1339,7 +1341,7 @@ namespace WiimoteLib
             playbackIndex = 0;
             soundData = data;
 
-            playbackTimer = new MicroTimer(sampleInterval);
+            playbackTimer = new MicroTimer(reportInterval);
             playbackTimer.Elapsed += OnPlaybackTimerElapsed;
             playbackTimer.Start();
         }
