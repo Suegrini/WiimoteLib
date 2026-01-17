@@ -218,7 +218,7 @@ namespace WiimoteLib
 							Debug.WriteLine("Found one!");
 							found = true;
 
-                            HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+                            HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 3);
 
                             // fire the callback function...if the callee doesn't care about more Wiimotes, break out
                             if (!wiimoteFound(diDetail.DevicePath))
@@ -275,7 +275,7 @@ namespace WiimoteLib
 					// create a nice .NET FileStream wrapping the handle above
 					mStream = new FileStream(mHandle, FileAccess.ReadWrite, REPORT_LENGTH, true);
 
-                    HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 2);
+                    HIDImports.HidD_SetNumInputBuffers(mHandle.DangerousGetHandle(), 3);
 
                     // start an async read operation on it
                     BeginAsyncRead();
@@ -721,7 +721,7 @@ namespace WiimoteLib
 		/// <param name="offset">Offset into data buffer</param>
 		private void ParseExtension(byte[] buff, int offset)
 		{
-			switch(mWiimoteState.ExtensionType)
+			switch (mWiimoteState.ExtensionType)
 			{
 				case ExtensionType.Nunchuk:
 					mWiimoteState.NunchukState.RawJoystick.X = buff[offset];
@@ -733,20 +733,34 @@ namespace WiimoteLib
                     mWiimoteState.NunchukState.C = (buff[offset + 5] & 0x02) == 0;
 					mWiimoteState.NunchukState.Z = (buff[offset + 5] & 0x01) == 0;
 
-					mWiimoteState.NunchukState.AccelState.Values.X = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.X - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0) / 
+					mWiimoteState.NunchukState.AccelState.Values.X = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.X - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0) /
 													((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.XG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.X0);
 					mWiimoteState.NunchukState.AccelState.Values.Y = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.Y - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Y0) /
 													((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.YG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Y0);
 					mWiimoteState.NunchukState.AccelState.Values.Z = (float)((float)mWiimoteState.NunchukState.AccelState.RawValues.Z - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Z0) /
 													((float)mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.ZG - mWiimoteState.NunchukState.CalibrationInfo.AccelCalibration.Z0);
 
-					if(mWiimoteState.NunchukState.CalibrationInfo.MaxX != 0x00)
-						mWiimoteState.NunchukState.Joystick.X = (float)((float)mWiimoteState.NunchukState.RawJoystick.X - mWiimoteState.NunchukState.CalibrationInfo.MidX) / 
+					if (mWiimoteState.NunchukState.CalibrationInfo.MaxX != 0x00)
+					{
+						mWiimoteState.NunchukState.Joystick.X = (float)((float)mWiimoteState.NunchukState.RawJoystick.X - mWiimoteState.NunchukState.CalibrationInfo.MidX) /
 												((float)mWiimoteState.NunchukState.CalibrationInfo.MaxX - mWiimoteState.NunchukState.CalibrationInfo.MinX);
+					}
+					else
+					{
+						mWiimoteState.NunchukState.Joystick.X = (float)((float)mWiimoteState.NunchukState.RawJoystick.X - 128f) /
+                                                ((float)255f - 0f);
+                    }
 
-					if(mWiimoteState.NunchukState.CalibrationInfo.MaxY != 0x00)
-						mWiimoteState.NunchukState.Joystick.Y = (float)((float)mWiimoteState.NunchukState.RawJoystick.Y - mWiimoteState.NunchukState.CalibrationInfo.MidY) / 
+					if (mWiimoteState.NunchukState.CalibrationInfo.MaxY != 0x00)
+					{
+						mWiimoteState.NunchukState.Joystick.Y = (float)((float)mWiimoteState.NunchukState.RawJoystick.Y - mWiimoteState.NunchukState.CalibrationInfo.MidY) /
 												((float)mWiimoteState.NunchukState.CalibrationInfo.MaxY - mWiimoteState.NunchukState.CalibrationInfo.MinY);
+					}
+					else
+					{
+						mWiimoteState.NunchukState.Joystick.Y = (float)((float)mWiimoteState.NunchukState.RawJoystick.Y - 128f) /
+                                                ((float)255f - 0f);
+                    }
 
 					break;
 
