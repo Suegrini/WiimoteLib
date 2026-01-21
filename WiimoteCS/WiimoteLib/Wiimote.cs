@@ -1298,19 +1298,15 @@ namespace WiimoteLib
         {
             byte[] speakerConfig = GetSpeakerConfig();
 
-            // samplesPerReport = mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM ? 20 : 40;
-            // reportInterval = (samplesPerReport * 1000000) / mWiimoteState.SpeakerState.SampleRate; Will revisit later
-
-            reportInterval = (20 * 1000000) / mWiimoteState.SpeakerState.SampleRate;
+            reportInterval = 20000000 / mWiimoteState.SpeakerState.SampleRate;
 
             mBuff[0] = (byte)OutputReport.SpeakerEnable;
             mBuff[1] = (byte)(0x04 | GetRumbleBit());
             WriteReport();
-
             SetSpeakerMuteState(true);
             WriteData(REGISTER_SPEAKER1, 0X01);
             WriteData(REGISTER_SPEAKER2, 0X08);
-            WriteData(REGISTER_SPEAKER2, 7, speakerConfig);
+			WriteData(REGISTER_SPEAKER2, 7, speakerConfig);
             WriteData(REGISTER_SPEAKER3, 0X01);
             SetSpeakerMuteState(false);
 
@@ -1379,8 +1375,10 @@ namespace WiimoteLib
         {
             byte[] config = new byte[7];
             ushort sampleRateValue = 0;
-            byte dataFormat = 0;
+			byte dataFormat = 0;
             byte volume = 0;
+
+			mWiimoteState.SpeakerState.SampleRate = 6000; //force sample rate because it currently cant be changed, idk why
 
             if (mWiimoteState.SpeakerState.DataFormat == SpeakerDataFormat.PCM)
             {
@@ -1556,7 +1554,7 @@ namespace WiimoteLib
 			mBuff[5] = size;
 			Array.Copy(buff, 0, mBuff, 6, size);
 
-			WriteReport();
+            WriteReport();
 		}
 
 		/// <summary>
